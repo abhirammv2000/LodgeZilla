@@ -1,18 +1,18 @@
-import os
-import pandas as pd
-from bs4 import BeautifulSoup
-import pymongo
-import emoji
-import random
-from app.util.utils import read_json, get_mongo_collection, generate_password
+"""One-off loader: cleans the Airbnb CSV exports and seeds MongoDB.
 
-mongo_config_file_path = os.path.join(os.path.dirname(__file__), 'app/config', 'mongo_config.json')
-mongo_config_file_content = read_json(mongo_config_file_path)
-client = pymongo.MongoClient()
-listing_collection = get_mongo_collection(client, mongo_config_file_content["listing_collection_name"])
-listing_collection.create_index([("property_id", pymongo.ASCENDING)])
-user_collection = get_mongo_collection(client, mongo_config_file_content["user_collection_name"])
-user_collection.create_index([("user_id", pymongo.ASCENDING)])
+Run from the `backend/` directory:  python clean_and_ingest_data.py
+"""
+import os
+import random
+import time
+
+import emoji
+import pandas as pd
+import pymongo
+from bs4 import BeautifulSoup
+
+from app.db import listing_collection, mongo_client, user_collection
+from app.util.utils import generate_password
 
 
 def parse_clean_add_listings_data(src_dir):
@@ -94,7 +94,7 @@ def parse_clean_add_user_data(src_dir):
         result = user_collection.bulk_write(bulk_write_updates)
     return 1
 
-def addRandomUserType():
+def add_random_user_type():
     # Find users without userType field
     users_without_user_type = user_collection.find({"userType": {"$exists": False}})
 
@@ -106,35 +106,29 @@ def addRandomUserType():
     print("User types randomly allocated for users without userType field.")
     return
 
-def assignHost():
-    # Get all host users
+def assign_hosts():
     host_user_ids = [user["user_id"] for user in user_collection.find({"userType": "host"})]
+    if not host_user_ids:
+        print("No hosts available.")
+        return
 
-# Iterate over properties and assign a random host_user_id
+    # Give every property a randomly chosen host.
     for property_doc in listing_collection.find():
-        if host_user_ids:
-            random_host_user_id = random.choice(host_user_ids)
-            # Update the property document with the host_user_id
-            listing_collection.update_one(
-                {"_id": property_doc["_id"]},
-                {"$set": {"host": random_host_user_id}}
-            )
-        else:
-            # Handle the case where there are no hosts
-            print("No hosts available.")
+        listing_collection.update_one(
+            {"_id": property_doc["_id"]},
+            {"$set": {"host": random.choice(host_user_ids)}},
+        )
 
     print("Hosts assigned to properties successfully.")
 
 
-import time
 if __name__ == "__main__":
-    a = time.time()
+    started = time.time()
     data_folder = "app/data"
     parse_clean_add_listings_data(data_folder)
     parse_clean_add_user_data(data_folder)
-    addRandomUserType()
-    assignHost()
-    client.close()
-    b = time.time()
-    print('time: {}'.format(abs(a-b)))
+    add_random_user_type()
+    assign_hosts()
+    mongo_client.close()
+    print("time: {:.1f}s".format(time.time() - started))
 

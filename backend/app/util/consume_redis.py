@@ -1,9 +1,10 @@
-import os, redis
-from utils import read_from_redis
+"""Worker that drains the activity queue.
 
+Run from the `backend/` directory:  python -m app.util.consume_redis
+"""
+from ..db import read_from_redis
+from .utils import configure_logging
 
-REDIS_KEY = "toWorkers"
-redisHost = os.getenv("REDIS_HOST") or "localhost"
-redisPort = os.getenv("REDIS_PORT") or 6379
-r = redis.StrictRedis(host=redisHost, port=redisPort, db=0)
-read_from_redis(r, REDIS_KEY)
+if __name__ == "__main__":
+    configure_logging()
+    read_from_redis()

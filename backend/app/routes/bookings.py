@@ -1,41 +1,19 @@
-from fastapi import APIRouter, Query, Body, Depends
-import os
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 import pymongo
-from ..util.utils import read_json, get_mongo_collection, push_to_redis
+
+from ..db import listing_collection, push_to_redis, user_collection
 from .auth import get_current_user
-from ..config import Constants
-import redis
-
-
-
-REDIS_KEY = "toWorkers"
-redisHost = os.getenv("REDIS_HOST") or "localhost"
-redisPort = os.getenv("REDIS_PORT") or 6379
-r = redis.StrictRedis(host=redisHost, port=redisPort, db=0)
 
 router = APIRouter()
 
 
-
-uri = "mongodb+srv://maiyaanirudh:F6RPgjEaLMl6CTBs@cluster0.ah1kbxn.mongodb.net/?retryWrites=true&w=majority"
-
-# MongoDB Connection
-mongo_config_file_path = os.path.join(os.path.dirname(__file__), '../config', 'mongo_config.json')
-mongo_config_file_content = read_json(mongo_config_file_path)
-client = pymongo.MongoClient(uri)
-listing_collection = get_mongo_collection(client, mongo_config_file_content["listing_collection_name"])
-listing_collection.create_index([("property_id", pymongo.ASCENDING)])
-user_collection = get_mongo_collection(client, mongo_config_file_content["user_collection_name"])
-user_collection.create_index([("user_id", pymongo.ASCENDING)])
-
-# API to search properties
 @router.get("/search")
 async def search_properties(
     destination: str = Query(..., title="Destination"),
     from_date: str = Query(..., title="From Date"),
-    to_date: str = Query(..., title="To Date")
+    to_date: str = Query(..., title="To Date"),
 ):
-
+    """Find properties in `destination` with no booking overlapping the date range."""
     query = {
         "location": {"$regex": destination, "$options": "i"},
         "$nor": [
@@ -43,16 +21,13 @@ async def search_properties(
                 "booking_history": {
                     "$elemMatch": {
                         "start_date": {"$lt": to_date},
-                        "end_date": {"$gt": from_date}
+                        "end_date": {"$gt": from_date},
                     }
                 }
             },
-            {
-                "booking_history": {"$exists": False}
-            }
-        ]
+            {"booking_history": {"$exists": False}},
+        ],
     }
-
     projection = {
         "_id": 0,
         "property_id": 1,
@@ -60,13 +35,15 @@ async def search_properties(
         "price": 1,
         "location": 1,
         "rating": 1,
-        "summary": 1
+        "summary": 1,
     }
 
-
-    push_to_redis(query, r, REDIS_KEY)
     properties = list(listing_collection.find(query, projection))
-    push_to_redis(properties, r, REDIS_KEY)
+    push_to_redis(
+        "Search '{}' {} to {} matched {} properties".format(
+            destination, from_date, to_date, len(properties)
+        )
+    )
     return properties
 
 
@@ -77,27 +54,35 @@ async def reserve_property(
     end_date: str = Body(...),
     current_user: int = Depends(get_current_user),
 ):
-    # Update the booking history of the property
-    booking_entry = {"user_id": int(current_user), "start_date": start_date, "end_date": end_date}
+    user_id = int(current_user)
+    booking_entry = {
+        "user_id": user_id,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+
     updated_property = listing_collection.find_one_and_update(
-    {"property_id": property_id},
-    {"$push": {"booking_history": booking_entry}},
-    return_document=pymongo.ReturnDocument.AFTER
-)
-
-    # Convert ObjectId to string for _id field
-    updated_property['_id'] = str(updated_property['_id'])
-
-    # Update the trips field of the user
-    updated_user = user_collection.find_one_and_update(
-        {"user_id": int(current_user)},
-        {"$set": {f"trips.{property_id}": []}},
-        return_document=pymongo.ReturnDocument.AFTER
+        {"property_id": property_id},
+        {"$push": {"booking_history": booking_entry}},
+        return_document=pymongo.ReturnDocument.AFTER,
     )
+    if updated_property is None:
+        raise HTTPException(status_code=404, detail="Property not found")
 
-    # Convert ObjectId to string for _id field
-    updated_user['_id'] = str(updated_user['_id'])
+    updated_user = user_collection.find_one_and_update(
+        {"user_id": user_id},
+        {"$set": {f"trips.{property_id}": []}},
+        return_document=pymongo.ReturnDocument.AFTER,
+    )
+    if updated_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    push_to_redis(updated_property, r, REDIS_KEY)
-    push_to_redis(updated_user, r, REDIS_KEY)
-    return {"message": "Reservation successful", "updated_property": updated_property, "updated_user": updated_user}
+    updated_property["_id"] = str(updated_property["_id"])
+    updated_user["_id"] = str(updated_user["_id"])
+
+    push_to_redis("Reserved property {} for user {}".format(property_id, user_id))
+    return {
+        "message": "Reservation successful",
+        "updated_property": updated_property,
+        "updated_user": updated_user,
+    }

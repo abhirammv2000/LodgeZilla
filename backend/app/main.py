@@ -1,21 +1,20 @@
-# app/main.py
 from fastapi import FastAPI
-from . import app_router
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import app_router
+from .config import settings
+from .util.utils import configure_logging
 
-app = FastAPI()
-origins = [
-    "http://localhost",
-    "http://lodgezilla.com",
-    "http://localhost:3000",  # Update with your frontend URL
-]
+configure_logging()
+
+app = FastAPI(title="LodgeZilla API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(app_router)

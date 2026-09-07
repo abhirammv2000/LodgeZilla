@@ -16,13 +16,27 @@ spec:
         - name: backend
           image: kush2106/backend_image:v3.0.0
           imagePullPolicy: Always
-          command: ["python", "run.py"]
           ports:
             - containerPort: 8000
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: lodgezilla-secrets
+                  key: mongo-uri
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lodgezilla-secrets
+                  key: jwt-secret-key
+            - name: REDIS_HOST
+              value: redis-service
+            - name: LOG_LEVEL
+              value: INFO
           resources:
             requests:
-              memory: "64Mi"
+              memory: "128Mi"
               cpu: "250m"
             limits:
-              memory: "128Mi"
+              memory: "256Mi"
               cpu: "500m"

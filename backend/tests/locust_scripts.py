@@ -1,4 +1,10 @@
-from locust import HttpUser, task, between
+import os
+
+from locust import HttpUser, between, task
+
+TEST_USER_NAME = os.getenv("TEST_USER_NAME", "AnirudhMaiya")
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "123456")
+LOGIN_URL = f"/api/auth/token?name={TEST_USER_NAME}&password={TEST_USER_PASSWORD}"
 
 class MyUser(HttpUser):
     wait_time = between(1, 3)  # Random wait time between 1 and 3 seconds
@@ -6,7 +12,7 @@ class MyUser(HttpUser):
     @task
     def create_property(self):
         # Simulate login
-        response = self.client.post("/api/auth/token?name=AnirudhMaiya&password=123456")
+        response = self.client.post(LOGIN_URL)
         access_token = response.json().get("access_token", "")
         # Simulate creating a property
         headers = {"Authorization": "Bearer "+access_token}
@@ -24,7 +30,7 @@ class MyUser(HttpUser):
     @task
     def login_and_reserve(self):
         # Simulate login
-        response = self.client.post("/api/auth/token?name=AnirudhMaiya&password=123456")
+        response = self.client.post(LOGIN_URL)
         access_token = response.json().get("access_token", "")
 
         # Simulate reserving a property
@@ -48,7 +54,7 @@ class MyUser(HttpUser):
     @task
     def search_properties(self):
         # Simulate login
-        response = self.client.post("/api/auth/token?name=AnirudhMaiya&password=123456")
+        response = self.client.post(LOGIN_URL)
         access_token = response.json().get("access_token", "")
         # Simulate searching for properties
         self.client.get("/api/bookings/search?destination=TestLocation&from_date=2023-12-01&to_date=2023-12-07", headers = {"Authorization": f"Bearer {access_token}"})
@@ -56,7 +62,7 @@ class MyUser(HttpUser):
     @task
     def list_properties_for_user(self):
         # Simulate login
-        response = self.client.post("/api/auth/token?name=AnirudhMaiya&password=123456")
+        response = self.client.post(LOGIN_URL)
         access_token = response.json().get("access_token", "")
         # Simulate listing properties for a particular user
         user_id = 123  # Replace with a valid user_id

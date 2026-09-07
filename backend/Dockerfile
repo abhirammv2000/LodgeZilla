@@ -2,13 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /myapp
 
-COPY . /myapp
+# Install dependencies first so the layer is cached across code changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY clean_and_ingest_data.py /myapp
-
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
+COPY . .
 
 EXPOSE 8000
 
-#RUN python clean_and_ingest_data.py
 CMD ["python", "run.py"]

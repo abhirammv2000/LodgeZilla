@@ -1,6 +1,24 @@
+# Python
 venv/
-.idea/
-__pycache__
-node_modules
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+node_modules/
 package-lock.json
-build
+build/
+coverage/
+
+# Secrets / local config
+.env
+.env.local
+
+# Logs
+*.log
+
+# Editors
+.idea/
+.vscode/
+.DS_Store

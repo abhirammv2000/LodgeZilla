@@ -1,10 +1,10 @@
-// apiService.js
+import { API_BASE_URL } from './config';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/auth';
+const AUTH_URL = `${API_BASE_URL}/auth`;
 
 export const createUser = async (userData) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/create`, {
+    const response = await fetch(`${AUTH_URL}/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -26,7 +26,7 @@ export const createUser = async (userData) => {
 
 export const login = async (name, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/token?name=${name}&password=${password}`, {
+      const response = await fetch(`${AUTH_URL}/token?name=${name}&password=${password}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

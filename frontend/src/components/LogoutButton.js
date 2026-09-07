@@ -3,14 +3,14 @@
 import React from 'react';
 import Button from '@mui/material/Button';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../services/AuthContext';
 
 const LogoutButton = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    // Add logic to perform logout actions if needed
-
-    // Redirect to the login page
+    logout();
     navigate('/');
   };
 

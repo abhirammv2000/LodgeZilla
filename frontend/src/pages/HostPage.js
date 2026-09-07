@@ -1,6 +1,7 @@
 // HostPage.js
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
 import LogoutButton from "../components/LogoutButton";
 import { useAuth } from '../services/AuthContext';
 import { getProperties, addProperty } from '../services/HostApi';
@@ -29,17 +30,27 @@ const HostPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const { jwtToken } = useAuth();
-  const decodedToken = jwtDecode(jwtToken);
+
+  // jwtDecode throws on a missing or malformed token, which would take the
+  // whole page down; fall back to sending the visitor to the login screen.
+  let hostId = null;
+  try {
+    hostId = jwtToken ? jwtDecode(jwtToken).sub : null;
+  } catch (error) {
+    hostId = null;
+  }
 
   const fetchProperties = useCallback(async () => {
+    if (!hostId) {
+      return;
+    }
     try {
-      const dataAsString = await getProperties(decodedToken.sub, jwtToken);
-      const data = JSON.parse(dataAsString);
-      setProperties(data);
+      const dataAsString = await getProperties(hostId, jwtToken);
+      setProperties(JSON.parse(dataAsString));
     } catch (error) {
       console.error('Error fetching properties:', error.message);
     }
-  }, [decodedToken.sub, jwtToken]);
+  }, [hostId, jwtToken]);
 
   useEffect(() => {
     fetchProperties();
@@ -64,7 +75,7 @@ const HostPage = () => {
         summary: summaryValue,
         price: priceValue,
         booking_history: [],
-        host: decodedToken.sub
+        host: hostId
       };
 
       // Make the API call to add the property
@@ -120,6 +131,10 @@ const HostPage = () => {
     return properties.slice(startIndex, endIndex);
   };
 
+  if (!hostId) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div style={{ textAlign: 'center', marginTop: '50px', backgroundColor: '#eee', height: '100vh' }}>
       <h2>Host Page</h2>
@@ -127,47 +142,41 @@ const HostPage = () => {
       {properties.length > 0 ? (
         <div>
           <h3>Available Properties</h3>
-          {properties.length > 0 ? (
-            <>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Rating</TableCell>
-                    <TableCell>Price</TableCell>
-                    <TableCell>View</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {getPaginatedData().map((property) => (
-                    <TableRow key={property.property_id}>
-                      <TableCell>{property.title}</TableCell>
-                      <TableCell>{property.location}</TableCell>
-                      <TableCell>{property.rating}</TableCell>
-                      <TableCell>{property.price}</TableCell>
-                      <TableCell>
-                        <Button variant="contained" onClick={() => handleViewDetails(property)}>
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={properties.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-              />
-            </>
-          ) : (
-            <p>No properties found. Try adjusting your search criteria.</p>
-          )}
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Title</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Rating</TableCell>
+                <TableCell>Price</TableCell>
+                <TableCell>View</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {getPaginatedData().map((property) => (
+                <TableRow key={property.property_id}>
+                  <TableCell>{property.title}</TableCell>
+                  <TableCell>{property.location}</TableCell>
+                  <TableCell>{property.rating}</TableCell>
+                  <TableCell>{property.price}</TableCell>
+                  <TableCell>
+                    <Button variant="contained" onClick={() => handleViewDetails(property)}>
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={properties.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
           {selectedProperty && (
             <Card style={{ 
               position: 'fixed', 

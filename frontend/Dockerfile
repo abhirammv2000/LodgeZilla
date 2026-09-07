@@ -1,22 +1,13 @@
-FROM node:20-alpine AS frontend
+FROM node:20-alpine
 
-# Set the working directory to /app
 WORKDIR /myapp
 
-# Copy package.json and package-lock.json to the container at /app
-COPY package*.json /myapp
-
-# Install app dependencies
+# Install dependencies first so the layer is cached across code changes.
+COPY package*.json ./
 RUN npm install --force
 
-# Copy the current directory contents into the container at /app
 COPY . .
 
-# Build the React app
-#RUN npm run build
-
-# Make port 80 available to the world outside this container
 EXPOSE 3000
 
-# Serve the built frontend application
-CMD ["npm", "run build"]
+CMD ["npm", "start"]

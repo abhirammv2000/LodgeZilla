@@ -1,6 +1,6 @@
-// services/touristService.js
+import { API_BASE_URL } from './config';
 
-const BASE_URL = 'http://127.0.0.1:8000/api/bookings'; // Update with your actual backend URL
+const BASE_URL = `${API_BASE_URL}/bookings`;
 
 const fetchProperties = async (destination, fromDate, toDate) => {
   try {

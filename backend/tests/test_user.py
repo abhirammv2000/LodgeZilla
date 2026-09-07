@@ -1,34 +1,26 @@
-from fastapi.testclient import TestClient
-import pytest
-from urllib.parse import urlencode
-from app.main import app
+from .conftest import TEST_USER_NAME, TEST_USER_PASSWORD
 
-@pytest.fixture
-def client():
-    return TestClient(app)
 
-def test_login_for_access_token(client):
-    # Test valid login
+def test_login_with_valid_credentials(client):
     response = client.post(
-        "/api/auth/token?name=AnirudhMaiya&password=123456",
+        f"/api/auth/token?name={TEST_USER_NAME}&password={TEST_USER_PASSWORD}"
     )
-
     assert response.status_code == 200
     assert "access_token" in response.json()
 
-    # Test invalid login
+
+def test_login_with_invalid_credentials(client):
     response = client.post(
-        "/api/auth/token?name=invalid_user&password=invalid_password",
+        "/api/auth/token?name=invalid_user&password=invalid_password"
     )
     assert response.status_code == 401
     assert "access_token" not in response.json()
 
-    # Test missing username or password
-    response = client.post("/api/auth/token", data={"name": "test_user"})
-    assert response.status_code == 422
 
-    response = client.post("/api/auth/token", data={"password": "test_password"})
-    assert response.status_code == 422
+def test_login_requires_both_name_and_password(client):
+    assert client.post("/api/auth/token?name=test_user").status_code == 422
+    assert client.post("/api/auth/token?password=test_password").status_code == 422
+
 
 def test_create_user(client):
     user_data = {
@@ -36,9 +28,6 @@ def test_create_user(client):
         "password": "test_password",
         "userType": "regular",
     }
-
-    # Test user creation
     response = client.post("/api/auth/create", json=user_data)
     assert response.status_code == 200
     assert response.json()["id"] is not None
-

@@ -16,7 +16,6 @@ spec:
         - name: frontend
           image: kush2106/frontend_image:v1.0.0
           imagePullPolicy: Always
-          command: ["npm", "start"]
           ports:
             - containerPort: 3000
           resources:

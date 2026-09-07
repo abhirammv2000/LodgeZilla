@@ -1,45 +1,56 @@
-from fastapi.testclient import TestClient
-from app.main import app  # Assuming your FastAPI app is defined in main.py or a similar file
-import time
+import pytest
 
-client = TestClient(app)
-
-access_token = client.post("/api/auth/token?name=AnirudhMaiya&password=123456").json()["access_token"]
-print(access_token)
-
-# Test data for the /add and /update endpoints
-test_listing_data = {
+TEST_LISTING = {
     "property_id": 1234,
     "title": "Test Property",
     "host": 456,
     "location": "Test Location",
-    "price": 100.0,
+    "price": 100,
     "rating": 4.5,
     "summary": "Test Summary",
-    "booking_hostory": []
+    "booking_history": [],
 }
 
-def test_sample_listing():
-    # This fixture adds a sample listing to the database before each test and deletes it after the test
-    result = client.post("/api/listings/add", json=test_listing_data, headers={"Authorization": "Bearer "+ access_token})
-    assert result.status_code == 200
-    return result.json()
 
-def test_get_listings():
-    response = client.get("/api/listings/list", headers={"Authorization": "Bearer "+ access_token})
+@pytest.fixture
+def listing(client, auth_headers):
+    """Add the test listing, then remove it once the test is done."""
+    response = client.post("/api/listings/add", json=TEST_LISTING, headers=auth_headers)
+    assert response.status_code == 200
+    yield response.json()
+    client.delete(
+        f"/api/listings/delete/{TEST_LISTING['property_id']}", headers=auth_headers
+    )
+
+
+def test_get_listings(client, auth_headers, listing):
+    response = client.get("/api/listings/list", headers=auth_headers)
     assert response.status_code == 200
 
-def test_get_listings_by_user_id():
-    user_id = test_listing_data["host"]
-    response = client.get(f"/api/listings/list/{user_id}", headers={"Authorization": "Bearer "+ access_token})
+
+def test_get_listings_by_host(client, auth_headers, listing):
+    response = client.get(
+        f"/api/listings/list/{TEST_LISTING['host']}", headers=auth_headers
+    )
     assert response.status_code == 200
 
-def test_delete_listing():
-    property_id = test_listing_data["property_id"]
-    response = client.delete(f"/api/listings/delete/{property_id}", headers={"Authorization": "Bearer "+ access_token})
+
+def test_update_listing(client, auth_headers, listing):
+    response = client.put(
+        f"/api/listings/update/{TEST_LISTING['property_id']}",
+        json={**TEST_LISTING, "price": 150},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["price"] == 150
+
+
+def test_delete_listing(client, auth_headers, listing):
+    property_id = TEST_LISTING["property_id"]
+    response = client.delete(f"/api/listings/delete/{property_id}", headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["status"] == "success"
-    time.sleep(10)
-    # Verify that the listing is no longer present in the database
-    response = client.get(f"/api/listings/list/{property_id}", headers={"Authorization": "Bearer "+ access_token})
-    assert response.json() == '[]'
+
+    # Deleting again must report the listing as gone.
+    response = client.delete(f"/api/listings/delete/{property_id}", headers=auth_headers)
+    assert response.status_code == 404
