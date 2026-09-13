@@ -246,11 +246,16 @@ This began as a course project, and a few things are demo-grade:
 - **The JWT lives in React state only**, so a page refresh logs you out. There is
   no refresh-token flow, and no server-side revocation before a token's own
   30-minute expiry.
-- **`/listings/list` returns every property** with no pagination; the UI
-  paginates client-side after downloading the whole collection.
-- **No CI/CD pipeline** runs the test suite or builds the images automatically.
-- **The frontend's "production" Docker image runs the CRA dev server**
-  (`npm start`), not a built-and-served static bundle.
+- **`/listings/list` returns every property** with no pagination, and the
+  response body is a JSON-encoded *string* of JSON that the frontend parses
+  twice. Both are known, both need the backend and frontend fixed together
+  to avoid breaking the UI, so neither is done yet.
+- **No frontend test coverage at all.** The one test file that existed was
+  CRA's unmodified boilerplate and has been removed; nothing replaced it.
+- **Dependency pins are still 2023-era** (fastapi 0.104.1, pydantic 2.5.2).
+  CI runs on Python 3.12 specifically because that's the newest interpreter
+  they still have prebuilt wheels for, not because they've been reviewed for
+  a newer major version.
 
 Fixed, not just documented:
 
@@ -262,9 +267,17 @@ Fixed, not just documented:
 - ~~Search matches location by unanchored regex~~, both a correctness issue
   (a destination containing regex syntax matched as a pattern, not literal
   text) and a full-collection-scan DoS vector. Escaped now.
-- ~~No ownership checks~~ — any authenticated user could update or delete
-  any listing regardless of who owned it. `PUT`/`DELETE` on a listing now
-  return 403 unless the caller is the host that created it.
+- ~~No ownership checks.~~ Any authenticated user could update or delete any
+  listing regardless of who owned it. `PUT`/`DELETE` on a listing now return
+  403 unless the caller is the host that created it.
+- ~~No CI/CD pipeline.~~ `.github/workflows/ci.yml` runs the backend test
+  suite plus a `ruff` lint pass, and builds the frontend, on every push.
+- ~~The frontend's "production" Docker image ran the CRA dev server.~~ It's
+  a proper multi-stage build now: compile the static bundle, serve it with
+  nginx.
+- ~~No local dev environment short of four manually-started processes.~~
+  `docker-compose.yml` brings up MongoDB, Redis, the backend and the
+  frontend together.
 
 ---
 
