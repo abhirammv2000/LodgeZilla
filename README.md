@@ -140,9 +140,12 @@ cd backend
 pytest
 ```
 
-These are integration tests: they need the API's MongoDB reachable and seeded,
-and they log in as a real account. Point them at yours with `TEST_USER_NAME` and
-`TEST_USER_PASSWORD`; if the login fails, the suite skips rather than erroring.
+19 tests, no external services required: `conftest.py` swaps in `mongomock`
+and `fakeredis` before the app is imported, so the suite runs the same way
+locally with nothing running as it does in CI. It used to need a real, hand-
+seeded MongoDB and would silently *skip* instead of fail if login didn't
+work, which is exactly the kind of thing that lets a real regression through
+a CI gate looking green; that dependency is gone now.
 
 Load testing:
 
@@ -161,7 +164,7 @@ All routes are prefixed `/api`. Locked routes require an
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/` | — | Health/landing string |
-| `POST` | `/auth/token?name=&password=` | — | Log in, returns a JWT |
+| `POST` | `/auth/token` | — | Log in (JSON body: `name`, `password`), returns a JWT |
 | `POST` | `/auth/create` | — | Create a user |
 | `GET` | `/listings/list` | — | All properties |
 | `GET` | `/listings/list/{user_id}` | — | Properties owned by one host |
@@ -240,18 +243,28 @@ deployments/        Kubernetes manifests
 
 This began as a course project, and a few things are demo-grade:
 
-- **Passwords are stored and compared in plaintext.** Logging in queries Mongo
-  for a matching `{name, password}` pair. Real use needs hashing (bcrypt/argon2)
-  and a migration of the existing documents.
-- **Credentials travel as query parameters** on `POST /auth/token`, so they land
-  in server and proxy logs. They belong in a form body.
 - **The JWT lives in React state only**, so a page refresh logs you out. There is
-  no refresh-token flow.
+  no refresh-token flow, and no server-side revocation before a token's own
+  30-minute expiry.
 - **`/listings/list` returns every property** with no pagination; the UI
   paginates client-side after downloading the whole collection.
-- **Search matches location by unanchored regex**, which cannot use an index.
-- **No ownership checks** — any authenticated user can update or delete any
-  listing.
+- **No CI/CD pipeline** runs the test suite or builds the images automatically.
+- **The frontend's "production" Docker image runs the CRA dev server**
+  (`npm start`), not a built-and-served static bundle.
+
+Fixed, not just documented:
+
+- ~~Passwords are stored and compared in plaintext.~~ Hashed with Argon2id;
+  an existing plaintext password from before this change is upgraded to a
+  hash the next time that account logs in successfully.
+- ~~Credentials travel as query parameters~~ on `POST /auth/token`. They are
+  a JSON body now.
+- ~~Search matches location by unanchored regex~~, both a correctness issue
+  (a destination containing regex syntax matched as a pattern, not literal
+  text) and a full-collection-scan DoS vector. Escaped now.
+- ~~No ownership checks~~ — any authenticated user could update or delete
+  any listing regardless of who owned it. `PUT`/`DELETE` on a listing now
+  return 403 unless the caller is the host that created it.
 
 ---
 

@@ -26,11 +26,15 @@ export const createUser = async (userData) => {
 
 export const login = async (name, password) => {
     try {
-      const response = await fetch(`${AUTH_URL}/token?name=${name}&password=${password}`, {
+      // Credentials go in the request body, not the URL: a query string
+      // ends up in server access logs and browser/proxy history, a request
+      // body does not.
+      const response = await fetch(`${AUTH_URL}/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ name, password }),
       });
   
       if (response.ok) {

@@ -41,6 +41,17 @@ async def create_item(listing: Property, current_user: str = Depends(get_current
     return {**listing.dict(), "id": str(result.inserted_id)}
 
 
+def _assert_owner(existing_data: dict, current_user: str) -> None:
+    """Only the host who owns a listing may change or remove it.
+
+    current_user is the JWT subject, a string (see auth.py's create_jwt_token,
+    which stringifies sub); host is stored as an int, so the comparison
+    normalizes both to str rather than assuming one side's type.
+    """
+    if str(existing_data.get("host")) != str(current_user):
+        raise HTTPException(status_code=403, detail="Not the owner of this property")
+
+
 @router.put("/update/{property_id}", response_model=Property)
 async def update_property(
     property_id: int,
@@ -50,6 +61,7 @@ async def update_property(
     existing_data = listing_collection.find_one({"property_id": property_id})
     if existing_data is None:
         raise HTTPException(status_code=404, detail="Property not found")
+    _assert_owner(existing_data, current_user)
 
     merged_data = {**existing_data, **updated_data.dict(exclude_unset=True)}
     listing_collection.update_one({"property_id": property_id}, {"$set": merged_data})
@@ -61,10 +73,11 @@ async def update_property(
 async def delete_property(
     property_id: int, current_user: str = Depends(get_current_user)
 ):
-    result = listing_collection.delete_one({"property_id": property_id})
-    if result.deleted_count == 0:
-        push_to_redis("Failed to delete property id {}".format(property_id))
+    existing_data = listing_collection.find_one({"property_id": property_id})
+    if existing_data is None:
         raise HTTPException(status_code=404, detail="Property not found")
+    _assert_owner(existing_data, current_user)
 
+    listing_collection.delete_one({"property_id": property_id})
     push_to_redis("Deleted property id {}".format(property_id))
     return {"status": "success", "message": "Property deleted successfully"}

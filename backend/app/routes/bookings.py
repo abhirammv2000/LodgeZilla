@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 import pymongo
 
@@ -14,8 +16,12 @@ async def search_properties(
     to_date: str = Query(..., title="To Date"),
 ):
     """Find properties in `destination` with no booking overlapping the date range."""
+    # re.escape so a destination containing regex metacharacters (a stray
+    # ".*", say) searches for that literal text instead of being interpreted
+    # as a pattern; an unescaped, unanchored $regex is also a full
+    # collection-scan DoS vector since it can't use an index.
     query = {
-        "location": {"$regex": destination, "$options": "i"},
+        "location": {"$regex": re.escape(destination), "$options": "i"},
         "$nor": [
             {
                 "booking_history": {
