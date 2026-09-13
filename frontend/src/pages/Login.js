@@ -8,6 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../services/AuthContext';
+import { decodeJwt } from '../services/jwt';
 
 const Login = () => {
   const { login: setAuthToken } = useAuth();
@@ -15,6 +16,7 @@ const Login = () => {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [signupMessage, setSignupMessage] = useState('');
   const navigate = useNavigate();
 
   const handleNameChange = (e) => {
@@ -30,17 +32,17 @@ const Login = () => {
   };
 
   const handleLogin = async () => {
+    setSignupMessage('');
     try {
       const data = await login(name, password);
       setAuthToken(data.access_token);
 
-      // Decode the JWT token to get user information
-      const decodedToken = JSON.parse(atob(data.access_token.split('.')[1]));
+      const decodedToken = decodeJwt(data.access_token);
 
       // Redirect based on user type
-      if (decodedToken.userType === 'tourist') {
+      if (decodedToken?.userType === 'tourist') {
         navigate('/tourist');
-      } else if (decodedToken.userType === 'host') {
+      } else if (decodedToken?.userType === 'host') {
         navigate('/host');
       }
     } catch (error) {
@@ -58,10 +60,15 @@ const Login = () => {
   };
 
   const handleCreateUser = (userData) => {
-    // Add your logic to create the user (send data to the server, etc.)
-    console.log('Creating user with data:', userData);
-
-    // After creating the user, navigate back to the login view
+    // The account itself was already created by Signup's own call to
+    // createUser; this just pre-fills the login form with what was just
+    // entered, rather than dropping the user back to a blank form after
+    // signing up, and confirms it actually happened.
+    if (userData) {
+      setName(userData.name);
+      setPassword(userData.password);
+    }
+    setSignupMessage('Account created. Log in to continue.');
     setIsLoginView(true);
   };
 
@@ -71,6 +78,7 @@ const Login = () => {
       {isLoginView ? (
         <>
           <h2>User Login</h2>
+          {signupMessage && <p style={{ color: 'green' }}>{signupMessage}</p>}
           <form>
             <div>
               <TextField

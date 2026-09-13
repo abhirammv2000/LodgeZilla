@@ -1,6 +1,7 @@
 // TouristPage.js
 
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
@@ -15,7 +16,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import LogoutButton from '../components/LogoutButton';
 import { fetchProperties, reserveProperty } from '../services/TouristApi';
 import { useAuth } from '../services/AuthContext';
-import {jwtDecode} from 'jwt-decode';
+import { isTokenValid } from '../services/jwt';
 
 const TouristPage = () => {
   const [location, setLocation] = useState('');
@@ -37,21 +38,18 @@ const TouristPage = () => {
   };
   
   useEffect(() => {
-    // Check if the JWT token has expired
-    const isTokenExpired = () => {
-      try {
-        const decodedToken = jwtDecode(jwtToken);
-        return decodedToken.exp < Date.now() / 1000;
-      } catch (error) {
-        return true; // If there's an error decoding the token, consider it expired
-      }
-    };
-
-    if (jwtToken && isTokenExpired()) {
-      // Token has expired, log out and redirect to login page
+    // Previously this only fired when jwtToken was truthy, so a visitor
+    // with no token at all (not logged in) never hit the logout/redirect
+    // path here; HostPage.js had an equivalent guard for its own route,
+    // this one didn't.
+    if (jwtToken && !isTokenValid(jwtToken)) {
       logout();
     }
   }, [jwtToken, logout]);
+
+  if (!isTokenValid(jwtToken)) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleLocationChange = (e) => {
     setLocation(e.target.value);

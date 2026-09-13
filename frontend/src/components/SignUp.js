@@ -32,11 +32,12 @@ const Signup = ({ onCancel, onSignup }) => {
         trips: {}
       };
 
-      const response = await createUser(userData);
+      await createUser(userData);
 
-      console.log('User created successfully:', response);
-      // Call the onSignup function passed from the parent (Login) component
-      onSignup();
+      // Call the onSignup function passed from the parent (Login) component,
+      // handing back the credentials just created so the login form can be
+      // pre-filled instead of making the user retype what they just entered.
+      onSignup({ name, password });
     } catch (error) {
       console.error('Error during user creation:', error);
     }

@@ -1,0 +1,8 @@
+# Scoped to rules that catch real bugs (unused imports, undefined names,
+# syntax issues), not pyupgrade/import-sorting style preferences that would
+# rewrite the existing code's style across the whole app for no functional
+# gain. A stricter config is a reasonable follow-up, not a blind first pass.
+line-length = 100
+
+[lint]
+select = ["E", "F"]

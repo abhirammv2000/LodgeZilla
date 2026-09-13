@@ -1,0 +1,52 @@
+# Local dev, all four pieces at once: `docker-compose up --build`.
+#
+# Previously the README's own instructions were to start MongoDB, Redis, the
+# backend and the frontend as four separate manually-run processes -- this
+# is the missing middle step between "run each service by hand" and the K8s
+# manifests in deployments/.
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Not a real secret: local-only, overridden by a real value (a K8s
+      # Secret, see deployments/secrets.example.yaml) anywhere this actually
+      # matters.
+      JWT_SECRET_KEY: local-dev-only-secret
+      CORS_ORIGINS: http://localhost:3000
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The backend is reached at localhost:8000 from the browser, not
+        # from inside the frontend container, since REACT_APP_API_BASE_URL
+        # is baked into the JS bundle at build time and that bundle runs in
+        # the user's browser, not in Docker's internal network.
+        REACT_APP_API_BASE_URL: http://localhost:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

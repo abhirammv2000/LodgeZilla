@@ -21,3 +21,6 @@ httpx==0.25.2
 locust==2.20.0
 mongomock==4.3.0
 fakeredis==2.38.0
+
+# Lint
+ruff==0.16.7

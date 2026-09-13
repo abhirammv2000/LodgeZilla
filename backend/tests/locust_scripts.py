@@ -67,7 +67,10 @@ class MyUser(HttpUser):
         response = self.client.post(LOGIN_URL, json=LOGIN_BODY)
         access_token = response.json().get("access_token", "")
         # Simulate searching for properties
-        self.client.get("/api/bookings/search?destination=TestLocation&from_date=2023-12-01&to_date=2023-12-07", headers = {"Authorization": f"Bearer {access_token}"})
+        self.client.get(
+            "/api/bookings/search?destination=TestLocation&from_date=2023-12-01&to_date=2023-12-07",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
 
     @task
     def list_properties_for_user(self):
@@ -76,4 +79,6 @@ class MyUser(HttpUser):
         access_token = response.json().get("access_token", "")
         # Simulate listing properties for a particular user
         user_id = 123  # Replace with a valid user_id
-        self.client.get(f"/api/listings/list/{user_id}", headers = {"Authorization": f"Bearer {access_token}"})
+        self.client.get(
+            f"/api/listings/list/{user_id}", headers={"Authorization": f"Bearer {access_token}"}
+        )

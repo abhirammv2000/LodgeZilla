@@ -5,7 +5,7 @@ import { Navigate } from 'react-router-dom';
 import LogoutButton from "../components/LogoutButton";
 import { useAuth } from '../services/AuthContext';
 import { getProperties, addProperty } from '../services/HostApi';
-import { jwtDecode } from 'jwt-decode';
+import { decodeJwt } from '../services/jwt';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableHead from '@mui/material/TableHead';
@@ -31,14 +31,10 @@ const HostPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const { jwtToken } = useAuth();
 
-  // jwtDecode throws on a missing or malformed token, which would take the
-  // whole page down; fall back to sending the visitor to the login screen.
-  let hostId = null;
-  try {
-    hostId = jwtToken ? jwtDecode(jwtToken).sub : null;
-  } catch (error) {
-    hostId = null;
-  }
+  // decodeJwt returns null instead of throwing on a missing or malformed
+  // token, so a bad token sends the visitor to the login screen below
+  // rather than taking the whole page down.
+  const hostId = decodeJwt(jwtToken)?.sub ?? null;
 
   const fetchProperties = useCallback(async () => {
     if (!hostId) {
