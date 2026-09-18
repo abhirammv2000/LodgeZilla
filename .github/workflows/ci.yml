@@ -58,10 +58,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Test
+        working-directory: frontend
+        run: npm test -- --watchAll=false
+
       - name: Build
         working-directory: frontend
         run: npm run build
-        # No test step: the frontend currently has no test files at all
-        # (the one that existed was CRA's unmodified boilerplate, already
-        # removed). Adding real tests is still open work, tracked in the
-        # README's Known limitations.

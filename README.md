@@ -246,12 +246,13 @@ This began as a course project, and a few things are demo-grade:
 - **The JWT lives in React state only**, so a page refresh logs you out. There is
   no refresh-token flow, and no server-side revocation before a token's own
   30-minute expiry.
-- **`/listings/list` returns every property** with no pagination, and the
-  response body is a JSON-encoded *string* of JSON that the frontend parses
-  twice. Both are known, both need the backend and frontend fixed together
-  to avoid breaking the UI, so neither is done yet.
-- **No frontend test coverage at all.** The one test file that existed was
-  CRA's unmodified boilerplate and has been removed; nothing replaced it.
+- **`/listings/list` returns every property** with no pagination. The frontend
+  already paginates client-side (`TablePagination` in `HostPage.js`), but the
+  whole collection still crosses the wire on every load, which won't hold up
+  once there are enough listings for it to matter.
+- **Frontend test coverage is minimal.** `HostPage.test.js` is the first
+  frontend test in the repo (added alongside the double-encoding fix below) -
+  it covers that one page's data flow, not the rest of the UI.
 - **Dependency pins are still 2023-era** (fastapi 0.104.1, pydantic 2.5.2).
   CI runs on Python 3.12 specifically because that's the newest interpreter
   they still have prebuilt wheels for, not because they've been reviewed for
@@ -267,6 +268,10 @@ Fixed, not just documented:
 - ~~Search matches location by unanchored regex~~, both a correctness issue
   (a destination containing regex syntax matched as a pattern, not literal
   text) and a full-collection-scan DoS vector. Escaped now.
+- ~~`/listings/list`'s response body was a JSON-encoded *string* of JSON~~,
+  so the frontend had to `JSON.parse` it a second time. The backend now
+  returns a plain array; `HostPage.js` parses it once, like any other
+  fetch response.
 - ~~No ownership checks.~~ Any authenticated user could update or delete any
   listing regardless of who owned it. `PUT`/`DELETE` on a listing now return
   403 unless the caller is the host that created it.
