@@ -41,8 +41,8 @@ const HostPage = () => {
       return;
     }
     try {
-      const dataAsString = await getProperties(hostId, jwtToken);
-      setProperties(JSON.parse(dataAsString));
+      const data = await getProperties(hostId, jwtToken);
+      setProperties(data);
     } catch (error) {
       console.error('Error fetching properties:', error.message);
     }
