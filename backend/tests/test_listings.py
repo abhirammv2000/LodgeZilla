@@ -28,6 +28,11 @@ def listing(client, auth_headers):
 def test_get_listings(client, auth_headers, listing):
     response = client.get("/api/listings/list", headers=auth_headers)
     assert response.status_code == 200
+    # The body is a plain JSON array - one client.json() call, not a JSON
+    # string that itself needs a second parse (see _serialize's docstring).
+    body = response.json()
+    assert isinstance(body, list)
+    assert any(item["property_id"] == TEST_LISTING["property_id"] for item in body)
 
 
 def test_get_listings_by_host(client, auth_headers, listing):
@@ -35,6 +40,9 @@ def test_get_listings_by_host(client, auth_headers, listing):
         f"/api/listings/list/{TEST_LISTING['host']}", headers=auth_headers
     )
     assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert all(item["host"] == TEST_LISTING["host"] for item in body)
 
 
 def test_update_listing(client, auth_headers, listing):

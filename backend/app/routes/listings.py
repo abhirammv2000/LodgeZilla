@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 from bson.json_util import dumps
 
 from ..db import listing_collection, push_to_redis
@@ -10,14 +10,21 @@ router = APIRouter()
 
 
 def _serialize(listings):
-    """Return listings as a JSON string body.
+    """Return listings as a normal JSON array body.
 
-    Note: the body is a JSON-encoded *string* of JSON, so clients must parse it
-    twice. The frontend relies on this, so it is preserved deliberately.
+    bson.json_util.dumps (not plain json.dumps) is what actually matters here
+    - it knows how to encode BSON types a raw pymongo document can still carry
+    (datetimes, Decimal128, etc.) even though _id is stringified above.
+    Passing its output through JSONResponse used to double-encode it: JSONResponse
+    itself calls json.dumps on whatever `content` is, so a Python str got
+    wrapped in JSON-string quoting on top of the JSON dumps() had already
+    produced, and the frontend had to JSON.parse the response body a second
+    time to undo it. Response with an explicit media_type sends dumps()'s
+    bytes as-is, so the wire format is just the array - one parse, not two.
     """
     for listing in listings:
         listing["_id"] = str(listing["_id"])
-    return JSONResponse(content=dumps(listings))
+    return Response(content=dumps(listings), media_type="application/json")
 
 
 @router.get("/list")
