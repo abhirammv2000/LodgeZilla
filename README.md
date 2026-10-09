@@ -140,12 +140,41 @@ cd backend
 pytest
 ```
 
-19 tests, no external services required: `conftest.py` swaps in `mongomock`
-and `fakeredis` before the app is imported, so the suite runs the same way
-locally with nothing running as it does in CI. It used to need a real, hand-
+39 tests need no external services: `conftest.py` swaps in `mongomock`
+and `fakeredis` before the app is imported, so they run the same way
+locally with nothing running as they do in CI. Four more tests race 24
+simultaneous reservations against a real MongoDB and are skipped unless you
+set `LODGEZILLA_TEST_MONGO_URI` (see [Double booking](#double-booking)). It used to need a real, hand-
 seeded MongoDB and would silently *skip* instead of fail if login didn't
 work, which is exactly the kind of thing that lets a real regression through
 a CI gate looking green; that dependency is gone now.
+
+### Double booking
+
+`POST /bookings/reserve/{id}` used to push a booking without looking at the
+existing ones, so the same dates could be sold twice, even one request after
+the other. It also failed with a 500 on any listing created through the API,
+because those have `booking_history: null` and MongoDB cannot `$push` onto
+null. Both are fixed, and the dates are now checked (`YYYY-MM-DD`, end not
+before start, otherwise 422).
+
+The check and the write are one `find_one_and_update` whose filter only
+matches a listing with no overlapping booking, so two requests cannot both
+pass the check. An overlap answers 409. The handler is also a plain `def`
+now, so FastAPI runs it on a worker thread and a database call no longer
+blocks the event loop.
+
+mongomock cannot say whether MongoDB really applies that update atomically, so
+the race tests need a server:
+
+```bash
+docker run -d -p 27017:27017 mongo:7
+LODGEZILLA_TEST_MONGO_URI=mongodb://localhost:27017 pytest tests/test_booking_concurrency.py
+```
+
+One of them is a control: the old unconditional push, through the same threads,
+double-booked in all 15 rounds. CI runs these against a MongoDB service
+container.
 
 Load testing:
 
@@ -247,6 +276,9 @@ This began as a course project, and a few things are demo-grade:
   already paginates client-side (`TablePagination` in `HostPage.js`), but the
   whole collection still crosses the wire on every load, which won't hold up
   once there are enough listings for it to matter.
+- **A refused reservation is invisible in the UI.** The tourist page only logs a
+  failed reservation to the console, so the new 409 reaches the browser but not
+  the user.
 - **Frontend test coverage is minimal.** `HostPage.test.js` is the only
   frontend test. It covers that one page's data flow, not the rest of the UI.
 - **No rate limiting** on the login or signup routes.
