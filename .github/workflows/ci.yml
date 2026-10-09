@@ -8,6 +8,12 @@ jobs:
   backend:
     name: Backend tests (Python 3.12)
     runs-on: ubuntu-latest
+    services:
+      # Only the concurrency tests use this. Everything else runs on mongomock.
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
     steps:
       - uses: actions/checkout@v4
 
@@ -37,9 +43,11 @@ jobs:
 
       - name: Run tests
         working-directory: backend
-        # No MongoDB or Redis service needed: conftest.py swaps in mongomock
-        # and fakeredis before the app is imported, so this runs the same
-        # way here as it does on a laptop with nothing else running.
+        # conftest.py swaps in mongomock and fakeredis before the app is imported, so most tests
+        # need no services. The double-booking race tests need a real MongoDB, which is the
+        # service container above; without LODGEZILLA_TEST_MONGO_URI they are skipped.
+        env:
+          LODGEZILLA_TEST_MONGO_URI: mongodb://localhost:27017
         run: pytest -v
 
   frontend:
